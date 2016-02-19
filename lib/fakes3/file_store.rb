@@ -83,7 +83,10 @@ module FakeS3
         metadata = YAML.load(File.open(File.join(obj_root,"metadata"),'rb'))
         real_obj.name = object_name
         real_obj.md5 = metadata[:md5]
-        real_obj.content_type = metadata.fetch(:content_type) { "application/octet-stream" }
+        real_obj.content_type = request.query['response-content-type'] ||
+          metadata.fetch(:content_type) { "application/octet-stream" }
+        real_obj.content_disposition = request.query['response-content-disposition'] ||
+          metadata[:content_disposition]
         #real_obj.io = File.open(File.join(obj_root,"content"),'rb')
         real_obj.io = RateLimitableFile.open(File.join(obj_root,"content"),'rb')
         real_obj.size = metadata.fetch(:size) { 0 }
@@ -147,6 +150,7 @@ module FakeS3
       obj.name = dst_name
       obj.md5 = src_metadata[:md5]
       obj.content_type = src_metadata[:content_type]
+      obj.content_disposition = src_metadata[:content_disposition]
       obj.size = src_metadata[:size]
       obj.modified_date = src_metadata[:modified_date]
 
@@ -201,6 +205,7 @@ module FakeS3
         obj.name = object_name
         obj.md5 = metadata_struct[:md5]
         obj.content_type = metadata_struct[:content_type]
+        obj.content_disposition = metadata_struct[:content_disposition]
         obj.size = metadata_struct[:size]
         obj.modified_date = metadata_struct[:modified_date]
 
@@ -261,6 +266,9 @@ module FakeS3
       metadata = {}
       metadata[:md5] = Digest::MD5.file(content).hexdigest
       metadata[:content_type] = request.header["content-type"].first
+      if request.header['content-disposition']
+        metadata[:content_disposition] = request.header['content-disposition'].first
+      end
       metadata[:size] = File.size(content)
       metadata[:modified_date] = File.mtime(content).utc.iso8601(SUBSECOND_PRECISION)
       metadata[:amazon_metadata] = {}
